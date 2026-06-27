@@ -65,3 +65,20 @@ body {
   width: 100%;
   height: auto;
 }
+
+.card-action-menu {
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  .card-action-menu {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .group:hover .card-action-menu,
+  .group:focus-within .card-action-menu {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

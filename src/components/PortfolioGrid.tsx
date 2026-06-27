@@ -5,18 +5,16 @@ interface PortfolioGridProps {
   items: PortfolioItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onMoveUp: (id: string) => void;
-  onMoveDown: (id: string) => void;
+  onDuplicate: (id: string) => void;
+  onRequestDelete: (id: string) => void;
 }
 
 export function PortfolioGrid({
   items,
   selectedId,
   onSelect,
-  onDelete,
-  onMoveUp,
-  onMoveDown,
+  onDuplicate,
+  onRequestDelete,
 }: PortfolioGridProps) {
   if (items.length === 0) {
     return (
@@ -46,17 +44,14 @@ export function PortfolioGrid({
 
   return (
     <div className="masonry-grid">
-      {items.map((item, index) => (
+      {items.map((item) => (
         <PortfolioCard
           key={item.id}
           item={item}
           isSelected={item.id === selectedId}
-          isFirst={index === 0}
-          isLast={index === items.length - 1}
           onSelect={onSelect}
-          onDelete={onDelete}
-          onMoveUp={onMoveUp}
-          onMoveDown={onMoveDown}
+          onDuplicate={onDuplicate}
+          onRequestDelete={onRequestDelete}
         />
       ))}
     </div>

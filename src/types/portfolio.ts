@@ -40,3 +40,15 @@ export function updatePortfolioItem(
     updatedAt: new Date().toISOString(),
   };
 }
+
+export function duplicatePortfolioItem(item: PortfolioItem): PortfolioItem {
+  const now = new Date().toISOString();
+
+  return {
+    ...item,
+    id: crypto.randomUUID(),
+    tags: [...item.tags],
+    createdAt: now,
+    updatedAt: now,
+  };
+}

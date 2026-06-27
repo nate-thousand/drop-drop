@@ -426,55 +426,127 @@
       50% { opacity: 0.5; }
     }
 
-    .card-actions-left,
-    .card-actions-right {
+    .card-action-menu {
       position: absolute;
       top: 0.5rem;
+      right: 0.5rem;
+      z-index: 10;
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .card-actions-left {
-      left: 0.5rem;
-    }
-
-    .card-actions-right {
-      right: 0.5rem;
-    }
-
-    .portfolio-card:hover .card-actions-left,
-    .portfolio-card:hover .card-actions-right {
+      gap: 0.125rem;
+      padding: 0.25rem;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(229, 229, 229, 0.8);
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(4px);
+      transition: opacity 200ms ease;
       opacity: 1;
     }
 
-    .card-action-btn {
+    @media (hover: hover) {
+      .card-action-menu {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .portfolio-card:hover .card-action-menu,
+      .portfolio-card:focus-within .card-action-menu {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+
+    .card-menu-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.5rem;
       border: none;
-      border-radius: 9999px;
-      background: rgba(23, 23, 23, 0.8);
-      color: var(--background);
-      padding: 0.375rem;
+      border-radius: 0.375rem;
+      background: transparent;
+      font-size: 0.75rem;
+      color: var(--foreground);
       cursor: pointer;
-      backdrop-filter: blur(4px);
-      transition: background 0.15s;
+      transition: background 150ms ease;
+    }
+
+    .card-menu-btn:hover,
+    .card-menu-btn:focus {
+      background: var(--background);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.15);
+    }
+
+    .card-menu-btn.delete {
+      color: #dc2626;
+    }
+
+    .card-menu-btn.delete:hover,
+    .card-menu-btn.delete:focus {
+      background: #fef2f2;
+      box-shadow: 0 0 0 2px rgba(252, 165, 165, 0.6);
+    }
+
+    .card-menu-btn svg {
+      width: 0.875rem;
+      height: 0.875rem;
+      flex-shrink: 0;
+    }
+
+    /* Delete confirmation dialog */
+    .delete-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 1rem;
     }
 
-    .card-action-btn:hover {
-      background: var(--foreground);
+    .delete-dialog.hidden {
+      display: none;
     }
 
-    .card-action-btn.delete:hover {
-      background: #dc2626;
+    .delete-dialog-backdrop {
+      position: absolute;
+      inset: 0;
+      border: none;
+      background: rgba(23, 23, 23, 0.2);
+      cursor: pointer;
     }
 
-    .card-action-btn svg {
-      width: 0.875rem;
-      height: 0.875rem;
+    .delete-dialog-panel {
+      position: relative;
+      width: 100%;
+      max-width: 24rem;
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      background: var(--card);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .delete-dialog-panel h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .delete-dialog-panel p {
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    .delete-dialog-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .delete-dialog-actions .btn {
+      flex: 1;
     }
 
     .featured-badge {
@@ -863,7 +935,7 @@
         <section>
           <div class="section-header">
             <h2 class="section-label">Portfolio</h2>
-            <p id="section-hint" class="section-hint hidden">Hover a card to reorder or delete</p>
+            <p id="section-hint" class="section-hint hidden">Hover a card for actions</p>
           </div>
           <div id="portfolio-container"></div>
         </section>
@@ -871,6 +943,18 @@
 
       <div id="editor-sidebar" class="editor-sidebar">
         <div class="editor-sidebar-inner" id="editor-sidebar-content"></div>
+      </div>
+    </div>
+
+    <div id="delete-dialog" class="delete-dialog hidden" role="presentation">
+      <button type="button" class="delete-dialog-backdrop" id="delete-dialog-backdrop" aria-label="Cancel delete"></button>
+      <div class="delete-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description">
+        <h2 id="delete-dialog-title">Delete Portfolio Item?</h2>
+        <p id="delete-dialog-description">This action cannot be undone.</p>
+        <div class="delete-dialog-actions">
+          <button type="button" class="btn" id="delete-dialog-cancel">Cancel</button>
+          <button type="button" class="btn btn-danger" id="delete-dialog-confirm">Delete</button>
+        </div>
       </div>
     </div>
 
@@ -894,6 +978,7 @@
       var state = {
         items: [],
         selectedId: null,
+        pendingDeleteId: null,
         isDragging: false,
         errors: [],
         pendingPreviews: []
@@ -1093,6 +1178,49 @@
         }
       }
 
+      function duplicatePortfolioItem(item) {
+        var now = new Date().toISOString();
+        return {
+          id: generateId(),
+          imageUrl: item.imageUrl,
+          title: item.title,
+          description: item.description,
+          tags: item.tags.slice(),
+          category: item.category,
+          featured: item.featured,
+          createdAt: now,
+          updatedAt: now
+        };
+      }
+
+      function duplicateItem(id) {
+        var index = -1;
+        for (var i = 0; i < state.items.length; i++) {
+          if (state.items[i].id === id) { index = i; break; }
+        }
+        if (index === -1) return;
+
+        var duplicate = duplicatePortfolioItem(state.items[index]);
+        state.items.splice(index + 1, 0, duplicate);
+        state.selectedId = duplicate.id;
+        savePortfolio();
+      }
+
+      function requestDelete(id) {
+        state.pendingDeleteId = id;
+      }
+
+      function cancelDelete() {
+        state.pendingDeleteId = null;
+      }
+
+      function confirmDelete() {
+        if (state.pendingDeleteId) {
+          deleteItem(state.pendingDeleteId);
+          state.pendingDeleteId = null;
+        }
+      }
+
       function deleteItem(id) {
         for (var i = 0; i < state.items.length; i++) {
           if (state.items[i].id === id) {
@@ -1175,8 +1303,6 @@
 
       function renderPortfolioCard(item, index, total) {
         var isSelected = item.id === state.selectedId;
-        var isFirst = index === 0;
-        var isLast = index === total - 1;
 
         var tagsHtml = "";
         if (item.tags.length > 0) {
@@ -1195,29 +1321,28 @@
           ? '<span class="featured-badge">Featured</span>'
           : "";
 
-        var moveUpHtml = !isFirst
-          ? '<button type="button" class="card-action-btn" data-action="move-up" data-id="' + item.id + '" aria-label="Move up">' +
-              '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75 12 8.25l7.5 7.5" /></svg>' +
-            "</button>"
-          : "";
-
-        var moveDownHtml = !isLast
-          ? '<button type="button" class="card-action-btn" data-action="move-down" data-id="' + item.id + '" aria-label="Move down">' +
-              '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25 12 15.75 4.5 8.25" /></svg>' +
-            "</button>"
-          : "";
+        var actionMenuHtml =
+          '<div class="card-action-menu" role="toolbar" aria-label="Actions for ' + escapeHtml(item.title) + '">' +
+            '<button type="button" class="card-menu-btn" data-action="edit" data-id="' + item.id + '" aria-label="Edit ' + escapeHtml(item.title) + '">' +
+              '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>' +
+              "<span>Edit</span>" +
+            "</button>" +
+            '<button type="button" class="card-menu-btn" data-action="duplicate" data-id="' + item.id + '" aria-label="Duplicate ' + escapeHtml(item.title) + '">' +
+              '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125H4.125A1.125 1.125 0 0 1 3 20.625V7.875c0-.621.504-1.125 1.125-1.125h3.75M8.25 8.25H15a2.25 2.25 0 0 1 2.25 2.25v6.75A2.25 2.25 0 0 1 15 19.5H8.25A2.25 2.25 0 0 1 6 17.25V10.5a2.25 2.25 0 0 1 2.25-2.25Z" /></svg>' +
+              "<span>Duplicate</span>" +
+            "</button>" +
+            '<button type="button" class="card-menu-btn delete" data-action="request-delete" data-id="' + item.id + '" aria-label="Delete ' + escapeHtml(item.title) + '">' +
+              '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>' +
+              "<span>Delete</span>" +
+            "</button>" +
+          "</div>";
 
         return (
           '<article class="masonry-item portfolio-card' + (isSelected ? " selected" : "") + '" data-id="' + item.id + '">' +
             '<div class="card-image-wrap">' +
               '<div class="card-skeleton" data-skeleton="' + item.id + '"></div>' +
               '<img src="' + item.imageUrl + '" alt="' + escapeHtml(item.title) + '" data-img="' + item.id + '" style="display:none;opacity:0" />' +
-              '<div class="card-actions-left">' +
-                '<button type="button" class="card-action-btn delete" data-action="delete" data-id="' + item.id + '" aria-label="Delete">' +
-                  '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>' +
-                "</button>" +
-              "</div>" +
-              '<div class="card-actions-right">' + moveUpHtml + moveDownHtml + "</div>" +
+              actionMenuHtml +
               featuredHtml +
             "</div>" +
             '<div class="card-body">' +
@@ -1414,7 +1539,7 @@
           deleteBtn.addEventListener("click", function () {
             var item = getSelectedItem();
             if (!item) return;
-            deleteItem(item.id);
+            requestDelete(item.id);
             render();
           });
         }
@@ -1479,7 +1604,7 @@
           projectCount.classList.add("hidden");
         }
 
-        if (state.items.length > 1) {
+        if (state.items.length > 0) {
           sectionHint.classList.remove("hidden");
         } else {
           sectionHint.classList.add("hidden");
@@ -1494,6 +1619,17 @@
         }
       }
 
+      function renderDeleteDialog() {
+        var dialog = document.getElementById("delete-dialog");
+        if (!dialog) return;
+
+        if (state.pendingDeleteId) {
+          dialog.classList.remove("hidden");
+        } else {
+          dialog.classList.add("hidden");
+        }
+      }
+
       function render() {
         renderDropZone();
         renderErrors();
@@ -1501,6 +1637,7 @@
         renderHeader();
         renderPortfolio();
         renderEditor();
+        renderDeleteDialog();
         bindPortfolioEvents();
       }
 
@@ -1508,12 +1645,14 @@
         var cards = portfolioContainer.querySelectorAll(".portfolio-card[data-id]");
         for (var i = 0; i < cards.length; i++) {
           (function (card) {
-            card.addEventListener("click", function () {
+            card.addEventListener("click", function (e) {
+              if (e.target.closest(".card-action-menu")) return;
               state.selectedId = card.getAttribute("data-id");
               render();
             });
 
             card.addEventListener("keydown", function (e) {
+              if (e.target !== card) return;
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 state.selectedId = card.getAttribute("data-id");
@@ -1522,7 +1661,7 @@
             });
 
             card.setAttribute("tabindex", "0");
-            card.setAttribute("role", "button");
+            card.setAttribute("aria-label", "Open project");
           })(cards[i]);
         }
 
@@ -1534,19 +1673,44 @@
               var action = btn.getAttribute("data-action");
               var id = btn.getAttribute("data-id");
 
-              if (action === "delete") {
-                deleteItem(id);
+              if (action === "edit") {
+                state.selectedId = id;
                 render();
-              } else if (action === "move-up") {
-                moveItem(id, -1);
+              } else if (action === "duplicate") {
+                duplicateItem(id);
                 render();
-              } else if (action === "move-down") {
-                moveItem(id, 1);
+              } else if (action === "request-delete") {
+                requestDelete(id);
                 render();
               }
             });
           })(actionBtns[j]);
         }
+      }
+
+      var deleteDialogBackdrop = document.getElementById("delete-dialog-backdrop");
+      var deleteDialogCancel = document.getElementById("delete-dialog-cancel");
+      var deleteDialogConfirm = document.getElementById("delete-dialog-confirm");
+
+      if (deleteDialogBackdrop) {
+        deleteDialogBackdrop.addEventListener("click", function () {
+          cancelDelete();
+          render();
+        });
+      }
+
+      if (deleteDialogCancel) {
+        deleteDialogCancel.addEventListener("click", function () {
+          cancelDelete();
+          render();
+        });
+      }
+
+      if (deleteDialogConfirm) {
+        deleteDialogConfirm.addEventListener("click", function () {
+          confirmDelete();
+          render();
+        });
       }
 
       dropZone.addEventListener("click", function () {

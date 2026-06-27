@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { DropZone } from "@/components/DropZone";
 import { PortfolioEditor } from "@/components/PortfolioEditor";
 import { PortfolioGrid } from "@/components/PortfolioGrid";
@@ -12,6 +13,7 @@ import {
 } from "@/lib/portfolio-storage";
 import {
   createPortfolioItem,
+  duplicatePortfolioItem,
   updatePortfolioItem,
   type PortfolioItem,
 } from "@/types/portfolio";
@@ -32,6 +34,7 @@ function moveItem(items: PortfolioItem[], id: string, direction: -1 | 1) {
 export default function HomePage() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   const selectedItem = items.find((item) => item.id === selectedId) ?? null;
@@ -85,6 +88,25 @@ export default function HomePage() {
       return prev.filter((i) => i.id !== id);
     });
     setSelectedId((current) => (current === id ? null : current));
+    setPendingDeleteId(null);
+  }, []);
+
+  const handleRequestDelete = useCallback((id: string) => {
+    setPendingDeleteId(id);
+  }, []);
+
+  const handleDuplicate = useCallback((id: string) => {
+    setItems((prev) => {
+      const index = prev.findIndex((item) => item.id === id);
+      if (index === -1) return prev;
+
+      const duplicate = duplicatePortfolioItem(prev[index]);
+      setSelectedId(duplicate.id);
+
+      const next = [...prev];
+      next.splice(index + 1, 0, duplicate);
+      return next;
+    });
   }, []);
 
   const handleMoveUp = useCallback((id: string) => {
@@ -124,9 +146,9 @@ export default function HomePage() {
               <h2 className="text-xs font-medium tracking-wide text-muted uppercase">
                 Portfolio
               </h2>
-              {items.length > 1 && (
+              {items.length > 0 && (
                 <p className="text-[10px] text-muted">
-                  Hover a card to reorder or delete
+                  Hover a card for actions
                 </p>
               )}
             </div>
@@ -134,9 +156,8 @@ export default function HomePage() {
               items={items}
               selectedId={selectedId}
               onSelect={handleSelect}
-              onDelete={handleDelete}
-              onMoveUp={handleMoveUp}
-              onMoveDown={handleMoveDown}
+              onDuplicate={handleDuplicate}
+              onRequestDelete={handleRequestDelete}
             />
           </section>
         </main>
@@ -148,7 +169,7 @@ export default function HomePage() {
                 item={selectedItem}
                 onUpdate={handleUpdate}
                 onClose={handleClose}
-                onDelete={() => handleDelete(selectedItem.id)}
+                onDelete={() => handleRequestDelete(selectedItem.id)}
                 onMoveUp={() => handleMoveUp(selectedItem.id)}
                 onMoveDown={() => handleMoveDown(selectedItem.id)}
                 isFirst={items[0]?.id === selectedItem.id}
@@ -171,7 +192,7 @@ export default function HomePage() {
               item={selectedItem}
               onUpdate={handleUpdate}
               onClose={handleClose}
-              onDelete={() => handleDelete(selectedItem.id)}
+              onDelete={() => handleRequestDelete(selectedItem.id)}
               onMoveUp={() => handleMoveUp(selectedItem.id)}
               onMoveDown={() => handleMoveDown(selectedItem.id)}
               isFirst={items[0]?.id === selectedItem.id}
@@ -180,6 +201,14 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmDialog
+        open={pendingDeleteId !== null}
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={() => {
+          if (pendingDeleteId) handleDelete(pendingDeleteId);
+        }}
+      />
     </div>
   );
 }
