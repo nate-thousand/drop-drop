@@ -45,7 +45,7 @@ export function PortfolioGrid({
   }
 
   return (
-    <div className="masonry-grid columns-1 sm:columns-2 lg:columns-3 xl:columns-4">
+    <div className="masonry-grid">
       {items.map((item, index) => (
         <PortfolioCard
           key={item.id}

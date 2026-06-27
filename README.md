@@ -17,6 +17,29 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Deploy to Vercel
+
+Code is on GitHub: [github.com/nate-thousand/drop-drop](https://github.com/nate-thousand/drop-drop)
+
+**One-click deploy** — import the repo into Vercel:
+
+👉 **[Deploy on Vercel](https://vercel.com/new/clone?repository-url=https://github.com/nate-thousand/drop-drop)**
+
+1. Click the link above and sign in with GitHub
+2. Confirm the repo `nate-thousand/drop-drop`
+3. Click **Deploy** (no env vars needed)
+4. Your live URL will be something like `https://drop-drop.vercel.app`
+
+Every `git push` to `main` will auto-redeploy.
+
+**Or via CLI** (if you have Node.js):
+
+```bash
+npm i -g vercel
+vercel login
+vercel --prod
+```
+
 ## Tech Stack
 
 - Next.js 15 (App Router)

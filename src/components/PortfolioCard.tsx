@@ -28,23 +28,35 @@ export function PortfolioCard({
 
   return (
     <article
-      className={`masonry-item group overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:shadow-md ${
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelect(item.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(item.id);
+        }
+      }}
+      className={`masonry-item group cursor-pointer overflow-hidden rounded-xl border bg-card shadow-sm transition-[transform,box-shadow,border-color] duration-200 ease-out hover:scale-[1.02] hover:border-accent hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1)] ${
         isSelected
           ? "border-foreground ring-2 ring-foreground/20"
-          : "border-border hover:border-muted"
+          : "border-border"
       }`}
     >
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden bg-background/40">
         {!imageLoaded && (
-          <div className="aspect-[4/3] w-full animate-pulse bg-background" />
+          <div
+            className="min-h-32 w-full animate-pulse bg-background"
+            aria-hidden="true"
+          />
         )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={item.imageUrl}
           alt={item.title}
           onLoad={() => setImageLoaded(true)}
-          className={`w-full object-cover transition-opacity duration-300 ${
-            imageLoaded ? "opacity-100" : "absolute inset-0 h-full opacity-0"
+          className={`block h-auto w-full transition-[transform,opacity] duration-200 ease-out group-hover:scale-[1.04] ${
+            imageLoaded ? "opacity-100" : "hidden"
           }`}
         />
 
@@ -134,11 +146,7 @@ export function PortfolioCard({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => onSelect(item.id)}
-        className="w-full p-4 text-left"
-      >
+      <div className="p-4 text-left">
         <h3 className="truncate text-sm font-semibold text-foreground">
           {item.title}
         </h3>
@@ -162,7 +170,7 @@ export function PortfolioCard({
             )}
           </div>
         )}
-      </button>
+      </div>
     </article>
   );
 }
