@@ -1,3 +1,5 @@
+"use client";
+
 import type { PortfolioItem } from "@/types/portfolio";
 import { PortfolioCard } from "./PortfolioCard";
 
@@ -7,6 +9,7 @@ interface PortfolioGridProps {
   onSelect: (id: string) => void;
   onDuplicate: (id: string) => void;
   onRequestDelete: (id: string) => void;
+  onReorder: (draggedId: string, targetId: string) => void;
 }
 
 export function PortfolioGrid({
@@ -15,6 +18,7 @@ export function PortfolioGrid({
   onSelect,
   onDuplicate,
   onRequestDelete,
+  onReorder,
 }: PortfolioGridProps) {
   if (items.length === 0) {
     return (
@@ -52,6 +56,7 @@ export function PortfolioGrid({
           onSelect={onSelect}
           onDuplicate={onDuplicate}
           onRequestDelete={onRequestDelete}
+          onDrop={onReorder}
         />
       ))}
     </div>

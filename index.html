@@ -455,6 +455,68 @@
         opacity: 1;
         pointer-events: auto;
       }
+
+      .card-drag-handle {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .portfolio-card:hover .card-drag-handle,
+      .portfolio-card:focus-within .card-drag-handle {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .portfolio-card.is-dragging .card-drag-handle {
+        opacity: 1;
+        pointer-events: auto;
+      }
+    }
+
+    .card-drag-handle {
+      position: absolute;
+      top: 0.5rem;
+      left: 0.5rem;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.375rem;
+      border-radius: 0.375rem;
+      border: 1px solid rgba(229, 229, 229, 0.8);
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--muted);
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(4px);
+      cursor: grab;
+      transition: opacity 200ms ease, color 150ms ease;
+      opacity: 1;
+    }
+
+    .card-drag-handle:hover,
+    .card-drag-handle:focus {
+      color: var(--foreground);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.15);
+    }
+
+    .card-drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .card-drag-handle svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    .portfolio-card.is-dragging {
+      transform: scale(0.98);
+      opacity: 0.5;
+    }
+
+    .portfolio-card.is-drop-target {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.2);
     }
 
     .card-menu-btn {
@@ -1142,6 +1204,8 @@
         pendingDeleteId: null,
         pendingImport: null,
         importError: null,
+        draggingId: null,
+        dropTargetId: null,
         isDragging: false,
         errors: [],
         pendingPreviews: []
@@ -1270,6 +1334,20 @@
         return null;
       }
 
+      function reorderItems(draggedId, targetId) {
+        if (draggedId === targetId) return;
+        var fromIndex = -1;
+        var toIndex = -1;
+        for (var i = 0; i < state.items.length; i++) {
+          if (state.items[i].id === draggedId) fromIndex = i;
+          if (state.items[i].id === targetId) toIndex = i;
+        }
+        if (fromIndex === -1 || toIndex === -1) return;
+        var moved = state.items.splice(fromIndex, 1)[0];
+        state.items.splice(toIndex, 0, moved);
+        savePortfolio();
+      }
+
       function moveItem(id, direction) {
         var index = -1;
         for (var i = 0; i < state.items.length; i++) {
@@ -1278,9 +1356,11 @@
         if (index === -1) return;
         var targetIndex = index + direction;
         if (targetIndex < 0 || targetIndex >= state.items.length) return;
-        var item = state.items.splice(index, 1)[0];
-        state.items.splice(targetIndex, 0, item);
-        savePortfolio();
+        if (direction < 0) {
+          reorderItems(id, state.items[targetIndex].id);
+        } else {
+          reorderItems(id, state.items[targetIndex].id);
+        }
       }
 
       function clearPendingPreviews() {
@@ -1607,6 +1687,13 @@
 
       function renderPortfolioCard(item, index, total) {
         var isSelected = item.id === state.selectedId;
+        var isDragging = item.id === state.draggingId;
+        var isDropTarget = item.id === state.dropTargetId && item.id !== state.draggingId;
+
+        var cardClasses = "masonry-item portfolio-card";
+        if (isSelected) cardClasses += " selected";
+        if (isDragging) cardClasses += " is-dragging";
+        if (isDropTarget) cardClasses += " is-drop-target";
 
         var tagsHtml = "";
         if (item.tags.length > 0) {
@@ -1641,11 +1728,21 @@
             "</button>" +
           "</div>";
 
+        var dragHandleHtml =
+          '<button type="button" class="card-drag-handle" draggable="true" data-action="drag-handle" data-id="' + item.id + '" aria-label="Drag to reorder ' + escapeHtml(item.title) + '">' +
+            '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+              '<circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />' +
+              '<circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />' +
+              '<circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />' +
+            "</svg>" +
+          "</button>";
+
         return (
-          '<article class="masonry-item portfolio-card' + (isSelected ? " selected" : "") + '" data-id="' + item.id + '">' +
+          '<article class="' + cardClasses + '" data-id="' + item.id + '">' +
             '<div class="card-image-wrap">' +
               '<div class="card-skeleton" data-skeleton="' + item.id + '"></div>' +
-              '<img src="' + item.imageUrl + '" alt="' + escapeHtml(item.title) + '" data-img="' + item.id + '" style="display:none;opacity:0" />' +
+              '<img src="' + item.imageUrl + '" alt="' + escapeHtml(item.title) + '" data-img="' + item.id + '" draggable="false" style="display:none;opacity:0" />' +
+              dragHandleHtml +
               actionMenuHtml +
               featuredHtml +
             "</div>" +
@@ -1912,7 +2009,7 @@
       function renderToolbar() {
         exportBtn.disabled = state.items.length === 0;
         toolbarHint.textContent = state.items.length > 0
-          ? "Hover a card for actions"
+          ? "Drag the grip to reorder · hover for actions"
           : "Export disabled until you add projects";
 
         if (state.importError) {
@@ -1954,6 +2051,13 @@
         }
       }
 
+      function clearCardDragVisuals() {
+        var cards = portfolioContainer.querySelectorAll(".portfolio-card");
+        for (var i = 0; i < cards.length; i++) {
+          cards[i].classList.remove("is-dragging", "is-drop-target");
+        }
+      }
+
       function render() {
         renderDropZone();
         renderErrors();
@@ -1971,9 +2075,11 @@
         var cards = portfolioContainer.querySelectorAll(".portfolio-card[data-id]");
         for (var i = 0; i < cards.length; i++) {
           (function (card) {
+            var cardId = card.getAttribute("data-id");
+
             card.addEventListener("click", function (e) {
-              if (e.target.closest(".card-action-menu")) return;
-              state.selectedId = card.getAttribute("data-id");
+              if (e.target.closest(".card-action-menu") || e.target.closest(".card-drag-handle")) return;
+              state.selectedId = cardId;
               render();
             });
 
@@ -1981,9 +2087,42 @@
               if (e.target !== card) return;
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                state.selectedId = card.getAttribute("data-id");
+                state.selectedId = cardId;
                 render();
               }
+            });
+
+            card.addEventListener("dragover", function (e) {
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+            });
+
+            card.addEventListener("dragenter", function (e) {
+              e.preventDefault();
+              if (card.classList.contains("is-dragging")) return;
+              var cards = portfolioContainer.querySelectorAll(".portfolio-card");
+              for (var c = 0; c < cards.length; c++) {
+                cards[c].classList.remove("is-drop-target");
+              }
+              card.classList.add("is-drop-target");
+            });
+
+            card.addEventListener("dragleave", function (e) {
+              if (card.contains(e.relatedTarget)) return;
+              card.classList.remove("is-drop-target");
+            });
+
+            card.addEventListener("drop", function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              var draggedId = e.dataTransfer.getData("text/plain");
+              if (draggedId && draggedId !== cardId) {
+                reorderItems(draggedId, cardId);
+              }
+              state.draggingId = null;
+              state.dropTargetId = null;
+              clearCardDragVisuals();
+              render();
             });
 
             card.setAttribute("tabindex", "0");
@@ -1991,7 +2130,34 @@
           })(cards[i]);
         }
 
-        var actionBtns = portfolioContainer.querySelectorAll("[data-action]");
+        var dragHandles = portfolioContainer.querySelectorAll('[data-action="drag-handle"]');
+        for (var h = 0; h < dragHandles.length; h++) {
+          (function (handle) {
+            handle.addEventListener("dragstart", function (e) {
+              e.stopPropagation();
+              var id = handle.getAttribute("data-id");
+              state.draggingId = id;
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", id);
+              clearCardDragVisuals();
+              var card = handle.closest(".portfolio-card");
+              if (card) card.classList.add("is-dragging");
+            });
+
+            handle.addEventListener("dragend", function () {
+              state.draggingId = null;
+              state.dropTargetId = null;
+              clearCardDragVisuals();
+              render();
+            });
+
+            handle.addEventListener("click", function (e) {
+              e.stopPropagation();
+            });
+          })(dragHandles[h]);
+        }
+
+        var actionBtns = portfolioContainer.querySelectorAll("[data-action]:not([data-action='drag-handle'])");
         for (var j = 0; j < actionBtns.length; j++) {
           (function (btn) {
             btn.addEventListener("click", function (e) {

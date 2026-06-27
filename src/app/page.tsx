@@ -26,20 +26,7 @@ import {
   type PortfolioItem,
 } from "@/types/portfolio";
 
-function moveItem(items: PortfolioItem[], id: string, direction: -1 | 1) {
-  const index = items.findIndex((item) => item.id === id);
-  if (index === -1) return items;
-
-  const targetIndex = index + direction;
-  if (targetIndex < 0 || targetIndex >= items.length) return items;
-
-  const next = [...items];
-  const [moved] = next.splice(index, 1);
-  next.splice(targetIndex, 0, moved);
-  return next;
-}
-
-export default function HomePage() {
+import { reorderItems } from "@/lib/reorder-items";
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -122,11 +109,19 @@ export default function HomePage() {
   }, []);
 
   const handleMoveUp = useCallback((id: string) => {
-    setItems((prev) => moveItem(prev, id, -1));
-  }, []);
+    const index = items.findIndex((item) => item.id === id);
+    if (index <= 0) return;
+    setItems((prev) => reorderItems(prev, id, prev[index - 1].id));
+  }, [items]);
 
   const handleMoveDown = useCallback((id: string) => {
-    setItems((prev) => moveItem(prev, id, 1));
+    const index = items.findIndex((item) => item.id === id);
+    if (index === -1 || index >= items.length - 1) return;
+    setItems((prev) => reorderItems(prev, id, prev[index + 1].id));
+  }, [items]);
+
+  const handleReorder = useCallback((draggedId: string, targetId: string) => {
+    setItems((prev) => reorderItems(prev, draggedId, targetId));
   }, []);
 
   const handleExport = useCallback(() => {
@@ -211,6 +206,7 @@ export default function HomePage() {
               onSelect={handleSelect}
               onDuplicate={handleDuplicate}
               onRequestDelete={handleRequestDelete}
+              onReorder={handleReorder}
             />
           </section>
         </main>

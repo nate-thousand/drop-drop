@@ -70,6 +70,10 @@ body {
   opacity: 1;
 }
 
+.card-drag-handle {
+  opacity: 1;
+}
+
 @media (hover: hover) {
   .card-action-menu {
     opacity: 0;
@@ -81,4 +85,30 @@ body {
     opacity: 1;
     pointer-events: auto;
   }
+
+  .card-drag-handle {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .group:hover .card-drag-handle,
+  .group:focus-within .card-drag-handle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .masonry-item[data-dragging] .card-drag-handle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.masonry-item[data-dragging] {
+  transform: scale(0.98);
+  opacity: 0.5;
+}
+
+.masonry-item[data-drop-target] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.2);
 }

@@ -52,7 +52,7 @@ export function PortfolioToolbar({
         </div>
         <p className="text-[10px] text-muted">
           {itemCount > 0
-            ? "Hover a card for actions"
+            ? "Drag the grip to reorder · hover for actions"
             : "Export disabled until you add projects"}
         </p>
       </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { PortfolioItem } from "@/types/portfolio";
 import { CardActionMenu } from "./CardActionMenu";
+import { DragHandle } from "./DragHandle";
 
 interface PortfolioCardProps {
   item: PortfolioItem;
@@ -10,6 +11,17 @@ interface PortfolioCardProps {
   onSelect: (id: string) => void;
   onDuplicate: (id: string) => void;
   onRequestDelete: (id: string) => void;
+  onDrop: (draggedId: string, targetId: string) => void;
+}
+
+function clearDragVisuals(grid: Element | null) {
+  if (!grid) return;
+  grid
+    .querySelectorAll("[data-dragging], [data-drop-target]")
+    .forEach((el) => {
+      el.removeAttribute("data-dragging");
+      el.removeAttribute("data-drop-target");
+    });
 }
 
 export function PortfolioCard({
@@ -18,8 +30,57 @@ export function PortfolioCard({
   onSelect,
   onDuplicate,
   onRequestDelete,
+  onDrop,
 }: PortfolioCardProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", item.id);
+
+    const grid = e.currentTarget.closest(".masonry-grid");
+    clearDragVisuals(grid);
+    e.currentTarget.closest("article")?.setAttribute("data-dragging", "");
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLButtonElement>) => {
+    clearDragVisuals(e.currentTarget.closest(".masonry-grid"));
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    const card = e.currentTarget;
+    if (card.hasAttribute("data-dragging")) return;
+
+    const grid = card.closest(".masonry-grid");
+    grid
+      ?.querySelectorAll("[data-drop-target]")
+      .forEach((el) => el.removeAttribute("data-drop-target"));
+    card.setAttribute("data-drop-target", "");
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLElement>) => {
+    const card = e.currentTarget;
+    if (card.contains(e.relatedTarget as Node)) return;
+    card.removeAttribute("data-drop-target");
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const grid = e.currentTarget.closest(".masonry-grid");
+    clearDragVisuals(grid);
+
+    const draggedId = e.dataTransfer.getData("text/plain");
+    if (draggedId && draggedId !== item.id) onDrop(draggedId, item.id);
+  };
 
   return (
     <article
@@ -32,8 +93,12 @@ export function PortfolioCard({
           onSelect(item.id);
         }
       }}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       aria-label={`Open ${item.title}`}
-      className={`group masonry-item cursor-pointer overflow-hidden rounded-xl border bg-card shadow-sm transition-[transform,box-shadow,border-color] duration-200 ease-out hover:scale-[1.02] hover:border-accent hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1)] ${
+      className={`group masonry-item cursor-pointer overflow-hidden rounded-xl border bg-card shadow-sm transition-[transform,box-shadow,border-color,opacity] duration-200 ease-out hover:scale-[1.02] hover:border-accent hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.1)] ${
         isSelected
           ? "border-foreground ring-2 ring-foreground/20"
           : "border-border"
@@ -54,6 +119,13 @@ export function PortfolioCard({
           className={`block h-auto w-full transition-[transform,opacity] duration-200 ease-out group-hover:scale-[1.04] ${
             imageLoaded ? "opacity-100" : "hidden"
           }`}
+          draggable={false}
+        />
+
+        <DragHandle
+          label={item.title}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
         />
 
         <CardActionMenu
