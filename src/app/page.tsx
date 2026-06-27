@@ -3,8 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { DropZone } from "@/components/DropZone";
+import { ImportDialog } from "@/components/ImportDialog";
 import { PortfolioEditor } from "@/components/PortfolioEditor";
 import { PortfolioGrid } from "@/components/PortfolioGrid";
+import { PortfolioToolbar } from "@/components/PortfolioToolbar";
+import {
+  downloadPortfolioExport,
+  mergePortfolioItems,
+  parsePortfolioImport,
+  reassignPortfolioIds,
+} from "@/lib/portfolio-import-export";
 import {
   fileToDataUrl,
   loadPortfolio,
@@ -35,6 +43,10 @@ export default function HomePage() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingImport, setPendingImport] = useState<PortfolioItem[] | null>(
+    null
+  );
+  const [importError, setImportError] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   const selectedItem = items.find((item) => item.id === selectedId) ?? null;
@@ -117,6 +129,47 @@ export default function HomePage() {
     setItems((prev) => moveItem(prev, id, 1));
   }, []);
 
+  const handleExport = useCallback(() => {
+    downloadPortfolioExport(items);
+  }, [items]);
+
+  const handleImportFile = useCallback(async (file: File) => {
+    try {
+      const text = await file.text();
+      const imported = parsePortfolioImport(text);
+      setImportError(null);
+      setPendingImport(imported);
+    } catch (error) {
+      setPendingImport(null);
+      setImportError(
+        error instanceof Error ? error.message : "Failed to import portfolio."
+      );
+    }
+  }, []);
+
+  const handleImportCancel = useCallback(() => {
+    setPendingImport(null);
+  }, []);
+
+  const handleImportMerge = useCallback(() => {
+    if (!pendingImport) return;
+
+    setItems((prev) => mergePortfolioItems(prev, pendingImport));
+    setPendingImport(null);
+    setSelectedId(null);
+  }, [pendingImport]);
+
+  const handleImportReplace = useCallback(() => {
+    if (!pendingImport) return;
+
+    setItems((prev) => {
+      prev.forEach((item) => revokeImageUrl(item.imageUrl));
+      return reassignPortfolioIds(pendingImport);
+    });
+    setPendingImport(null);
+    setSelectedId(null);
+  }, [pendingImport]);
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-border bg-card">
@@ -142,16 +195,16 @@ export default function HomePage() {
           </section>
 
           <section>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xs font-medium tracking-wide text-muted uppercase">
-                Portfolio
-              </h2>
-              {items.length > 0 && (
-                <p className="text-[10px] text-muted">
-                  Hover a card for actions
-                </p>
-              )}
-            </div>
+            <h2 className="mb-4 text-xs font-medium tracking-wide text-muted uppercase">
+              Portfolio
+            </h2>
+            <PortfolioToolbar
+              itemCount={items.length}
+              importError={importError}
+              onExport={handleExport}
+              onImportFile={handleImportFile}
+              onDismissError={() => setImportError(null)}
+            />
             <PortfolioGrid
               items={items}
               selectedId={selectedId}
@@ -208,6 +261,14 @@ export default function HomePage() {
         onConfirm={() => {
           if (pendingDeleteId) handleDelete(pendingDeleteId);
         }}
+      />
+
+      <ImportDialog
+        open={pendingImport !== null}
+        itemCount={pendingImport?.length ?? 0}
+        onCancel={handleImportCancel}
+        onMerge={handleImportMerge}
+        onReplace={handleImportReplace}
       />
     </div>
   );

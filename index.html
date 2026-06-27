@@ -549,6 +549,143 @@
       flex: 1;
     }
 
+    /* Portfolio toolbar */
+    .portfolio-toolbar-wrap {
+      margin-bottom: 1rem;
+    }
+
+    .portfolio-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+
+    .portfolio-toolbar-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .toolbar-btn {
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      background: var(--card);
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--foreground);
+      cursor: pointer;
+      transition: background 150ms ease;
+    }
+
+    .toolbar-btn:hover,
+    .toolbar-btn:focus {
+      background: var(--background);
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.15);
+    }
+
+    .toolbar-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .toolbar-hint {
+      font-size: 0.625rem;
+      color: var(--muted);
+    }
+
+    .import-error {
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      font-size: 0.75rem;
+      color: #dc2626;
+    }
+
+    .import-error.hidden {
+      display: none;
+    }
+
+    .import-error-dismiss {
+      border: none;
+      background: none;
+      color: #991b1b;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    /* Import dialog */
+    .import-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .import-dialog.hidden {
+      display: none;
+    }
+
+    .import-dialog-panel {
+      position: relative;
+      width: 100%;
+      max-width: 24rem;
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      border: 1px solid var(--border);
+      background: var(--card);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .import-dialog-panel h2 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .import-dialog-panel p {
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    .import-dialog-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .import-dialog-actions .btn {
+      width: 100%;
+    }
+
+    .import-dialog-actions .btn-ghost {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .import-dialog-actions .btn-ghost:hover {
+      color: var(--foreground);
+      background: transparent;
+    }
+
     .featured-badge {
       position: absolute;
       bottom: 0.5rem;
@@ -933,9 +1070,20 @@
         </section>
 
         <section>
-          <div class="section-header">
-            <h2 class="section-label">Portfolio</h2>
-            <p id="section-hint" class="section-hint hidden">Hover a card for actions</p>
+          <h2 class="section-label">Portfolio</h2>
+          <div class="portfolio-toolbar-wrap" id="portfolio-toolbar-wrap">
+            <div class="portfolio-toolbar">
+              <div class="portfolio-toolbar-actions">
+                <button type="button" class="toolbar-btn" id="export-btn" disabled>Export JSON</button>
+                <button type="button" class="toolbar-btn" id="import-btn">Import JSON</button>
+                <input type="file" id="import-file-input" accept=".json,application/json" class="file-input" />
+              </div>
+              <p class="toolbar-hint" id="toolbar-hint">Export disabled until you add projects</p>
+            </div>
+            <div id="import-error" class="import-error hidden" role="alert">
+              <span id="import-error-text"></span>
+              <button type="button" class="import-error-dismiss" id="import-error-dismiss" aria-label="Dismiss error">&times;</button>
+            </div>
           </div>
           <div id="portfolio-container"></div>
         </section>
@@ -943,6 +1091,19 @@
 
       <div id="editor-sidebar" class="editor-sidebar">
         <div class="editor-sidebar-inner" id="editor-sidebar-content"></div>
+      </div>
+    </div>
+
+    <div id="import-dialog" class="import-dialog hidden" role="presentation">
+      <button type="button" class="delete-dialog-backdrop" id="import-dialog-backdrop" aria-label="Cancel import"></button>
+      <div class="import-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="import-dialog-title" aria-describedby="import-dialog-description">
+        <h2 id="import-dialog-title">Import Portfolio?</h2>
+        <p id="import-dialog-description"></p>
+        <div class="import-dialog-actions">
+          <button type="button" class="btn" id="import-merge-btn">Add to portfolio</button>
+          <button type="button" class="btn btn-danger" id="import-replace-btn">Replace everything</button>
+          <button type="button" class="btn btn-ghost" id="import-cancel-btn">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -979,6 +1140,8 @@
         items: [],
         selectedId: null,
         pendingDeleteId: null,
+        pendingImport: null,
+        importError: null,
         isDragging: false,
         errors: [],
         pendingPreviews: []
@@ -1028,8 +1191,20 @@
       var errorsContainer = document.getElementById("errors-container");
       var uploadPreviewsContainer = document.getElementById("upload-previews-container");
       var portfolioContainer = document.getElementById("portfolio-container");
+      var exportBtn = document.getElementById("export-btn");
+      var importBtn = document.getElementById("import-btn");
+      var importFileInput = document.getElementById("import-file-input");
+      var toolbarHint = document.getElementById("toolbar-hint");
+      var importErrorEl = document.getElementById("import-error");
+      var importErrorText = document.getElementById("import-error-text");
+      var importErrorDismiss = document.getElementById("import-error-dismiss");
+      var importDialog = document.getElementById("import-dialog");
+      var importDialogDescription = document.getElementById("import-dialog-description");
+      var importDialogBackdrop = document.getElementById("import-dialog-backdrop");
+      var importMergeBtn = document.getElementById("import-merge-btn");
+      var importReplaceBtn = document.getElementById("import-replace-btn");
+      var importCancelBtn = document.getElementById("import-cancel-btn");
       var projectCount = document.getElementById("project-count");
-      var sectionHint = document.getElementById("section-hint");
       var editorSidebar = document.getElementById("editor-sidebar");
       var editorSidebarContent = document.getElementById("editor-sidebar-content");
       var editorOverlay = document.getElementById("editor-overlay");
@@ -1233,6 +1408,135 @@
           state.selectedId = null;
         }
         savePortfolio();
+      }
+
+      function isPortfolioItem(value) {
+        return (
+          value &&
+          typeof value === "object" &&
+          typeof value.id === "string" &&
+          typeof value.imageUrl === "string" &&
+          typeof value.title === "string" &&
+          typeof value.description === "string" &&
+          Array.isArray(value.tags) &&
+          typeof value.category === "string" &&
+          typeof value.createdAt === "string" &&
+          typeof value.updatedAt === "string" &&
+          typeof value.featured === "boolean"
+        );
+      }
+
+      function downloadPortfolioExport() {
+        var payload = {
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          items: state.items
+        };
+        var json = JSON.stringify(payload, null, 2);
+        var blob = new Blob([json], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+        var date = new Date().toISOString().slice(0, 10);
+        var anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "drop-drop-portfolio-" + date + ".json";
+        anchor.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function parsePortfolioImport(json) {
+        var parsed;
+        try {
+          parsed = JSON.parse(json);
+        } catch (e) {
+          throw new Error("Invalid JSON file.");
+        }
+
+        var items;
+        if (parsed && Array.isArray(parsed.items)) {
+          items = parsed.items;
+        } else if (Array.isArray(parsed)) {
+          items = parsed;
+        } else {
+          throw new Error("Portfolio file must contain an items array.");
+        }
+
+        if (!items.length) {
+          throw new Error("Portfolio file contains no projects.");
+        }
+
+        var valid = [];
+        for (var i = 0; i < items.length; i++) {
+          if (isPortfolioItem(items[i])) {
+            valid.push({
+              id: items[i].id,
+              imageUrl: items[i].imageUrl,
+              title: items[i].title,
+              description: items[i].description,
+              tags: items[i].tags.slice(),
+              category: items[i].category,
+              createdAt: items[i].createdAt,
+              updatedAt: items[i].updatedAt,
+              featured: items[i].featured
+            });
+          }
+        }
+
+        if (!valid.length) {
+          throw new Error("No valid portfolio projects found in file.");
+        }
+
+        return valid;
+      }
+
+      function reassignPortfolioIds(items) {
+        return items.map(function (item) {
+          return {
+            id: generateId(),
+            imageUrl: item.imageUrl,
+            title: item.title,
+            description: item.description,
+            tags: item.tags.slice(),
+            category: item.category,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+            featured: item.featured
+          };
+        });
+      }
+
+      function mergeImportedItems(imported) {
+        state.items = state.items.concat(reassignPortfolioIds(imported));
+        state.selectedId = null;
+        savePortfolio();
+      }
+
+      function replaceImportedItems(imported) {
+        for (var i = 0; i < state.items.length; i++) {
+          revokeImageUrl(state.items[i].imageUrl);
+        }
+        state.items = reassignPortfolioIds(imported);
+        state.selectedId = null;
+        savePortfolio();
+      }
+
+      function handleImportFile(file) {
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            state.pendingImport = parsePortfolioImport(reader.result);
+            state.importError = null;
+            render();
+          } catch (e) {
+            state.pendingImport = null;
+            state.importError = e.message || "Failed to import portfolio.";
+            render();
+          }
+        };
+        reader.onerror = function () {
+          state.importError = "Failed to read file.";
+          render();
+        };
+        reader.readAsText(file);
       }
 
       function escapeHtml(str) {
@@ -1603,11 +1907,31 @@
         } else {
           projectCount.classList.add("hidden");
         }
+      }
 
-        if (state.items.length > 0) {
-          sectionHint.classList.remove("hidden");
+      function renderToolbar() {
+        exportBtn.disabled = state.items.length === 0;
+        toolbarHint.textContent = state.items.length > 0
+          ? "Hover a card for actions"
+          : "Export disabled until you add projects";
+
+        if (state.importError) {
+          importErrorText.textContent = state.importError;
+          importErrorEl.classList.remove("hidden");
         } else {
-          sectionHint.classList.add("hidden");
+          importErrorEl.classList.add("hidden");
+        }
+      }
+
+      function renderImportDialog() {
+        if (state.pendingImport && state.pendingImport.length > 0) {
+          var count = state.pendingImport.length;
+          importDialogDescription.textContent =
+            "Found " + count + " " + (count === 1 ? "project" : "projects") +
+            " in this file. How would you like to import them?";
+          importDialog.classList.remove("hidden");
+        } else {
+          importDialog.classList.add("hidden");
         }
       }
 
@@ -1635,9 +1959,11 @@
         renderErrors();
         renderUploadPreviews();
         renderHeader();
+        renderToolbar();
         renderPortfolio();
         renderEditor();
         renderDeleteDialog();
+        renderImportDialog();
         bindPortfolioEvents();
       }
 
@@ -1712,6 +2038,51 @@
           render();
         });
       }
+
+      exportBtn.addEventListener("click", function () {
+        if (state.items.length > 0) downloadPortfolioExport();
+      });
+
+      importBtn.addEventListener("click", function () {
+        importFileInput.click();
+      });
+
+      importFileInput.addEventListener("change", function (e) {
+        var file = e.target.files && e.target.files[0];
+        if (file) handleImportFile(file);
+        e.target.value = "";
+      });
+
+      importErrorDismiss.addEventListener("click", function () {
+        state.importError = null;
+        renderToolbar();
+      });
+
+      importDialogBackdrop.addEventListener("click", function () {
+        state.pendingImport = null;
+        render();
+      });
+
+      importCancelBtn.addEventListener("click", function () {
+        state.pendingImport = null;
+        render();
+      });
+
+      importMergeBtn.addEventListener("click", function () {
+        if (state.pendingImport) {
+          mergeImportedItems(state.pendingImport);
+          state.pendingImport = null;
+          render();
+        }
+      });
+
+      importReplaceBtn.addEventListener("click", function () {
+        if (state.pendingImport) {
+          replaceImportedItems(state.pendingImport);
+          state.pendingImport = null;
+          render();
+        }
+      });
 
       dropZone.addEventListener("click", function () {
         fileInput.click();
