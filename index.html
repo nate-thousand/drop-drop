@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drop Drop — Portfolio Builder</title>
+  <style>
+    :root {
+      --background: #fafafa;
+      --foreground: #171717;
+      --card: #ffffff;
+      --border: #e5e5e5;
+      --muted: #737373;
+      --accent: #171717;
+      --radius: 0.75rem;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--background);
+      color: var(--foreground);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    button, input, textarea {
+      font: inherit;
+    }
+
+    /* Layout */
+    .app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .header {
+      border-bottom: 1px solid var(--border);
+      background: var(--card);
+    }
+
+    .header-inner {
+      max-width: 80rem;
+      margin: 0 auto;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header h1 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .header p {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .project-count {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .layout {
+      max-width: 80rem;
+      margin: 0 auto;
+      width: 100%;
+      flex: 1;
+      display: flex;
+    }
+
+    .main {
+      flex: 1;
+      padding: 2rem 1.5rem;
+      min-width: 0;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .section-hint {
+      font-size: 0.625rem;
+      color: var(--muted);
+    }
+
+    /* Drop Zone */
+    .drop-zone-section {
+      margin-bottom: 2rem;
+    }
+
+    .drop-zone {
+      position: relative;
+      cursor: pointer;
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 2px dashed var(--border);
+      background: var(--card);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .drop-zone:hover {
+      border-color: var(--muted);
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .drop-zone.dragging {
+      transform: scale(1.01);
+      border-color: var(--foreground);
+      background: rgba(23, 23, 23, 0.05);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .drop-zone-overlay {
+      display: none;
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      background: rgba(23, 23, 23, 0.05);
+    }
+
+    .drop-zone.dragging .drop-zone-overlay {
+      display: flex;
+    }
+
+    .drop-zone-badge {
+      border-radius: 9999px;
+      background: var(--foreground);
+      color: var(--background);
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .drop-zone-content {
+      max-width: 24rem;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      transition: opacity 0.2s;
+    }
+
+    .drop-zone.dragging .drop-zone-content {
+      opacity: 0.3;
+    }
+
+    .drop-zone-icon {
+      border-radius: 9999px;
+      padding: 0.75rem;
+      background: var(--background);
+      transition: background 0.2s;
+    }
+
+    .drop-zone.dragging .drop-zone-icon {
+      background: rgba(23, 23, 23, 0.1);
+    }
+
+    .drop-zone-icon svg {
+      width: 2rem;
+      height: 2rem;
+      color: var(--muted);
+      transition: color 0.2s;
+    }
+
+    .drop-zone.dragging .drop-zone-icon svg {
+      color: var(--foreground);
+    }
+
+    .drop-zone-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .drop-zone-subtitle {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    /* Errors */
+    .errors {
+      margin-top: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      padding: 0.75rem 1rem;
+    }
+
+    .errors-title {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #991b1b;
+    }
+
+    .errors-list {
+      list-style: none;
+      margin-top: 0.375rem;
+    }
+
+    .errors-list li {
+      font-size: 0.75rem;
+      color: #dc2626;
+      margin-top: 0.25rem;
+    }
+
+    /* Upload Previews */
+    .upload-previews {
+      margin-top: 1rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--card);
+      padding: 1rem;
+    }
+
+    .upload-previews-title {
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-bottom: 0.75rem;
+    }
+
+    .upload-previews-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+    }
+
+    @media (min-width: 640px) {
+      .upload-previews-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    @media (min-width: 768px) {
+      .upload-previews-grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+    }
+
+    .preview-card {
+      position: relative;
+      aspect-ratio: 1;
+      overflow: hidden;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: var(--card);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .preview-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .preview-card-label {
+      position: absolute;
+      inset-inline: 0;
+      bottom: 0;
+      padding: 1.5rem 0.5rem 0.5rem;
+      background: linear-gradient(to top, rgba(23, 23, 23, 0.6), transparent);
+    }
+
+    .preview-card-label p {
+      font-size: 0.625rem;
+      font-weight: 500;
+      color: var(--background);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Empty State */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--radius);
+      border: 1px dashed var(--border);
+      background: rgba(255, 255, 255, 0.5);
+      padding: 5rem 1.5rem;
+      text-align: center;
+    }
+
+    .empty-state svg {
+      width: 2.5rem;
+      height: 2.5rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .empty-state p {
+      margin-top: 0.25rem;
+      max-width: 20rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* Masonry Grid */
+    .masonry-grid {
+      column-gap: 1.25rem;
+      columns: 1;
+    }
+
+    @media (min-width: 640px) {
+      .masonry-grid {
+        columns: 2;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .masonry-grid {
+        columns: 3;
+      }
+    }
+
+    @media (min-width: 1280px) {
+      .masonry-grid {
+        columns: 4;
+      }
+    }
+
+    .masonry-item {
+      break-inside: avoid;
+      margin-bottom: 1.25rem;
+    }
+
+    /* Portfolio Card */
+    .portfolio-card {
+      overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--card);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+    }
+
+    .portfolio-card:hover {
+      box-shadow: var(--shadow-md);
+      border-color: var(--muted);
+    }
+
+    .portfolio-card.selected {
+      border-color: var(--foreground);
+      box-shadow: 0 0 0 2px rgba(23, 23, 23, 0.2);
+    }
+
+    .card-image-wrap {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-image-wrap img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .card-skeleton {
+      aspect-ratio: 4 / 3;
+      width: 100%;
+      background: var(--background);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .card-actions-left,
+    .card-actions-right {
+      position: absolute;
+      top: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .card-actions-left {
+      left: 0.5rem;
+    }
+
+    .card-actions-right {
+      right: 0.5rem;
+    }
+
+    .portfolio-card:hover .card-actions-left,
+    .portfolio-card:hover .card-actions-right {
+      opacity: 1;
+    }
+
+    .card-action-btn {
+      border: none;
+      border-radius: 9999px;
+      background: rgba(23, 23, 23, 0.8);
+      color: var(--background);
+      padding: 0.375rem;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .card-action-btn:hover {
+      background: var(--foreground);
+    }
+
+    .card-action-btn.delete:hover {
+      background: #dc2626;
+    }
+
+    .card-action-btn svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    .featured-badge {
+      position: absolute;
+      bottom: 0.5rem;
+      left: 0.5rem;
+      border-radius: 9999px;
+      background: var(--foreground);
+      color: var(--background);
+      padding: 0.125rem 0.5rem;
+      font-size: 0.625rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .card-body {
+      width: 100%;
+      padding: 1rem;
+      text-align: left;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: inherit;
+    }
+
+    .card-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-description {
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-tags {
+      margin-top: 0.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+    }
+
+    .card-tag {
+      border-radius: 9999px;
+      background: var(--background);
+      padding: 0.125rem 0.5rem;
+      font-size: 0.625rem;
+      color: var(--muted);
+    }
+
+    .card-tag-more {
+      font-size: 0.625rem;
+      color: var(--muted);
+    }
+
+    /* Editor Sidebar (Desktop) */
+    .editor-sidebar {
+      display: none;
+      width: 20rem;
+      flex-shrink: 0;
+    }
+
+    @media (min-width: 1024px) {
+      .editor-sidebar.visible {
+        display: block;
+      }
+    }
+
+    .editor-sidebar-inner {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+    }
+
+    /* Editor Bottom Sheet (Mobile) */
+    .editor-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+    }
+
+    .editor-overlay.visible {
+      display: block;
+    }
+
+    @media (min-width: 1024px) {
+      .editor-overlay {
+        display: none !important;
+      }
+    }
+
+    .editor-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(23, 23, 23, 0.2);
+    }
+
+    .editor-sheet {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-height: 85vh;
+      overflow: hidden;
+      border-radius: 1rem 1rem 0 0;
+      background: var(--card);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* Editor Panel */
+    .editor {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      border-left: 1px solid var(--border);
+      background: var(--card);
+    }
+
+    .editor-sheet .editor {
+      border-left: none;
+      max-height: 85vh;
+    }
+
+    .editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.25rem;
+    }
+
+    .editor-header h2 {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .editor-close {
+      border: none;
+      background: none;
+      border-radius: 0.375rem;
+      padding: 0.25rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .editor-close:hover {
+      background: var(--background);
+      color: var(--foreground);
+    }
+
+    .editor-close svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    .editor-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.25rem;
+    }
+
+    .editor-preview {
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+    }
+
+    .editor-preview img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-label {
+      display: block;
+      margin-bottom: 0.375rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .form-input,
+    .form-textarea {
+      width: 100%;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: var(--background);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      color: var(--foreground);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus {
+      border-color: var(--foreground);
+    }
+
+    .form-textarea {
+      resize: none;
+      rows: 3;
+    }
+
+    /* Tags Input */
+    .tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: var(--background);
+      padding: 0.5rem;
+    }
+
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      border-radius: 9999px;
+      background: var(--card);
+      padding: 0.125rem 0.625rem;
+      font-size: 0.75rem;
+    }
+
+    .tag-remove {
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .tag-remove:hover {
+      color: var(--foreground);
+    }
+
+    .tags-input {
+      flex: 1;
+      min-width: 5rem;
+      border: none;
+      background: transparent;
+      font-size: 0.75rem;
+      outline: none;
+      color: var(--foreground);
+    }
+
+    .tags-input::placeholder {
+      color: var(--muted);
+    }
+
+    .tags-hint {
+      margin-top: 0.25rem;
+      font-size: 0.625rem;
+      color: var(--muted);
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+    }
+
+    .checkbox-label input {
+      width: 1rem;
+      height: 1rem;
+      accent-color: var(--foreground);
+    }
+
+    .checkbox-label span {
+      font-size: 0.875rem;
+    }
+
+    .editor-footer {
+      border-top: 1px solid var(--border);
+      padding: 1.25rem;
+    }
+
+    .editor-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .btn {
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      background: var(--card);
+      color: var(--foreground);
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--background);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-flex {
+      flex: 1;
+    }
+
+    .btn-danger {
+      width: 100%;
+      border-color: #fecaca;
+      color: #dc2626;
+    }
+
+    .btn-danger:hover {
+      background: #fef2f2;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-inner">
+        <div>
+          <h1>Drop Drop</h1>
+          <p>Portfolio builder</p>
+        </div>
+        <span id="project-count" class="project-count hidden"></span>
+      </div>
+    </header>
+
+    <div class="layout">
+      <main class="main">
+        <section class="drop-zone-section">
+          <div
+            id="drop-zone"
+            class="drop-zone"
+            role="button"
+            tabindex="0"
+            aria-label="Upload images"
+          >
+            <div class="drop-zone-overlay">
+              <div class="drop-zone-badge">Drop to upload</div>
+            </div>
+            <input
+              id="file-input"
+              class="file-input"
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,.gif"
+              multiple
+            />
+            <div class="drop-zone-content">
+              <div class="drop-zone-icon">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                </svg>
+              </div>
+              <p class="drop-zone-title">Drop images here or click to upload</p>
+              <p class="drop-zone-subtitle">JPG, PNG, WebP, GIF — multiple files supported</p>
+            </div>
+          </div>
+          <div id="errors-container"></div>
+          <div id="upload-previews-container"></div>
+        </section>
+
+        <section>
+          <div class="section-header">
+            <h2 class="section-label">Portfolio</h2>
+            <p id="section-hint" class="section-hint hidden">Hover a card to reorder or delete</p>
+          </div>
+          <div id="portfolio-container"></div>
+        </section>
+      </main>
+
+      <div id="editor-sidebar" class="editor-sidebar">
+        <div class="editor-sidebar-inner" id="editor-sidebar-content"></div>
+      </div>
+    </div>
+
+    <div id="editor-overlay" class="editor-overlay">
+      <div class="editor-backdrop" id="editor-backdrop"></div>
+      <div class="editor-sheet" id="editor-sheet-content"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+      var ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+      var DEFAULT_TITLE = "Untitled Project";
+      var DEFAULT_DESCRIPTION = "Short project description goes here.";
+      var DEFAULT_CATEGORY = "Uncategorized";
+
+      var state = {
+        items: [],
+        selectedId: null,
+        isDragging: false,
+        errors: [],
+        pendingPreviews: []
+      };
+
+      var dragCounter = 0;
+      var previewTimeout = null;
+
+      var dropZone = document.getElementById("drop-zone");
+      var fileInput = document.getElementById("file-input");
+      var errorsContainer = document.getElementById("errors-container");
+      var uploadPreviewsContainer = document.getElementById("upload-previews-container");
+      var portfolioContainer = document.getElementById("portfolio-container");
+      var projectCount = document.getElementById("project-count");
+      var sectionHint = document.getElementById("section-hint");
+      var editorSidebar = document.getElementById("editor-sidebar");
+      var editorSidebarContent = document.getElementById("editor-sidebar-content");
+      var editorOverlay = document.getElementById("editor-overlay");
+      var editorBackdrop = document.getElementById("editor-backdrop");
+      var editorSheetContent = document.getElementById("editor-sheet-content");
+
+      function generateId() {
+        return crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+      }
+
+      function getExtension(filename) {
+        var dot = filename.lastIndexOf(".");
+        return dot === -1 ? "" : filename.slice(dot).toLowerCase();
+      }
+
+      function validateImageFile(file) {
+        var extension = getExtension(file.name);
+        var typeValid = ALLOWED_TYPES.indexOf(file.type) !== -1;
+        var extensionValid = ALLOWED_EXTENSIONS.indexOf(extension) !== -1;
+
+        if (!typeValid && !extensionValid) {
+          return {
+            valid: false,
+            error: '"' + file.name + '" is not supported. Use JPG, PNG, WebP, or GIF.'
+          };
+        }
+        return { valid: true };
+      }
+
+      function partitionImageFiles(files) {
+        var valid = [];
+        var errors = [];
+        for (var i = 0; i < files.length; i++) {
+          var result = validateImageFile(files[i]);
+          if (result.valid) {
+            valid.push(files[i]);
+          } else if (result.error) {
+            errors.push(result.error);
+          }
+        }
+        return { valid: valid, errors: errors };
+      }
+
+      function createPortfolioItem(imageUrl) {
+        var now = new Date().toISOString();
+        return {
+          id: generateId(),
+          imageUrl: imageUrl,
+          title: DEFAULT_TITLE,
+          description: DEFAULT_DESCRIPTION,
+          tags: [],
+          category: DEFAULT_CATEGORY,
+          createdAt: now,
+          updatedAt: now,
+          featured: false
+        };
+      }
+
+      function getSelectedItem() {
+        for (var i = 0; i < state.items.length; i++) {
+          if (state.items[i].id === state.selectedId) return state.items[i];
+        }
+        return null;
+      }
+
+      function moveItem(id, direction) {
+        var index = -1;
+        for (var i = 0; i < state.items.length; i++) {
+          if (state.items[i].id === id) { index = i; break; }
+        }
+        if (index === -1) return;
+        var targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= state.items.length) return;
+        var item = state.items.splice(index, 1)[0];
+        state.items.splice(targetIndex, 0, item);
+      }
+
+      function clearPendingPreviews() {
+        for (var i = 0; i < state.pendingPreviews.length; i++) {
+          URL.revokeObjectURL(state.pendingPreviews[i].previewUrl);
+        }
+        state.pendingPreviews = [];
+      }
+
+      function processFiles(fileList) {
+        if (!fileList || fileList.length === 0) return;
+
+        var files = Array.prototype.slice.call(fileList);
+        var result = partitionImageFiles(files);
+
+        state.errors = result.errors;
+
+        if (result.valid.length === 0) {
+          render();
+          return;
+        }
+
+        clearPendingPreviews();
+
+        var previews = result.valid.map(function (file) {
+          return {
+            id: generateId(),
+            file: file,
+            previewUrl: URL.createObjectURL(file)
+          };
+        });
+
+        state.pendingPreviews = previews;
+
+        var newItems = result.valid.map(function (file) {
+          return createPortfolioItem(URL.createObjectURL(file));
+        });
+
+        state.items = newItems.concat(state.items);
+
+        if (newItems.length === 1) {
+          state.selectedId = newItems[0].id;
+        }
+
+        render();
+
+        if (previewTimeout) clearTimeout(previewTimeout);
+        previewTimeout = setTimeout(function () {
+          clearPendingPreviews();
+          renderUploadPreviews();
+        }, 2500);
+      }
+
+      function updateItem(id, updates) {
+        for (var i = 0; i < state.items.length; i++) {
+          if (state.items[i].id === id) {
+            var item = state.items[i];
+            for (var key in updates) {
+              if (updates.hasOwnProperty(key)) {
+                item[key] = updates[key];
+              }
+            }
+            item.updatedAt = new Date().toISOString();
+            break;
+          }
+        }
+      }
+
+      function deleteItem(id) {
+        for (var i = 0; i < state.items.length; i++) {
+          if (state.items[i].id === id) {
+            URL.revokeObjectURL(state.items[i].imageUrl);
+            state.items.splice(i, 1);
+            break;
+          }
+        }
+        if (state.selectedId === id) {
+          state.selectedId = null;
+        }
+      }
+
+      function escapeHtml(str) {
+        var div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function renderErrors() {
+        if (state.errors.length === 0) {
+          errorsContainer.innerHTML = "";
+          return;
+        }
+
+        var title = state.errors.length === 1
+          ? "Unsupported file"
+          : state.errors.length + " unsupported files";
+
+        var listItems = state.errors.map(function (err) {
+          return "<li>" + escapeHtml(err) + "</li>";
+        }).join("");
+
+        errorsContainer.innerHTML =
+          '<div class="errors" role="alert">' +
+            '<p class="errors-title">' + escapeHtml(title) + "</p>" +
+            '<ul class="errors-list">' + listItems + "</ul>" +
+          "</div>";
+      }
+
+      function renderUploadPreviews() {
+        if (state.pendingPreviews.length === 0) {
+          uploadPreviewsContainer.innerHTML = "";
+          return;
+        }
+
+        var count = state.pendingPreviews.length;
+        var label = count === 1 ? "image" : "images";
+
+        var cards = state.pendingPreviews.map(function (preview) {
+          return (
+            '<div class="preview-card">' +
+              '<img src="' + preview.previewUrl + '" alt="' + escapeHtml(preview.file.name) + '" />' +
+              '<div class="preview-card-label">' +
+                '<p>' + escapeHtml(preview.file.name) + "</p>" +
+              "</div>" +
+            "</div>"
+          );
+        }).join("");
+
+        uploadPreviewsContainer.innerHTML =
+          '<div class="upload-previews">' +
+            '<p class="upload-previews-title">Added ' + count + " " + label + "</p>" +
+            '<div class="upload-previews-grid">' + cards + "</div>" +
+          "</div>";
+      }
+
+      function renderEmptyState() {
+        return (
+          '<div class="empty-state">' +
+            '<svg fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" aria-hidden="true">' +
+              '<path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />' +
+            "</svg>" +
+            "<h3>No projects yet</h3>" +
+            "<p>Drop images above to start building your portfolio. Each image becomes a project card you can edit.</p>" +
+          "</div>"
+        );
+      }
+
+      function renderPortfolioCard(item, index, total) {
+        var isSelected = item.id === state.selectedId;
+        var isFirst = index === 0;
+        var isLast = index === total - 1;
+
+        var tagsHtml = "";
+        if (item.tags.length > 0) {
+          var visibleTags = item.tags.slice(0, 3);
+          tagsHtml = '<div class="card-tags">';
+          for (var t = 0; t < visibleTags.length; t++) {
+            tagsHtml += '<span class="card-tag">' + escapeHtml(visibleTags[t]) + "</span>";
+          }
+          if (item.tags.length > 3) {
+            tagsHtml += '<span class="card-tag-more">+' + (item.tags.length - 3) + "</span>";
+          }
+          tagsHtml += "</div>";
+        }
+
+        var featuredHtml = item.featured
+          ? '<span class="featured-badge">Featured</span>'
+          : "";
+
+        var moveUpHtml = !isFirst
+          ? '<button type="button" class="card-action-btn" data-action="move-up" data-id="' + item.id + '" aria-label="Move up">' +
+              '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75 12 8.25l7.5 7.5" /></svg>' +
+            "</button>"
+          : "";
+
+        var moveDownHtml = !isLast
+          ? '<button type="button" class="card-action-btn" data-action="move-down" data-id="' + item.id + '" aria-label="Move down">' +
+              '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25 12 15.75 4.5 8.25" /></svg>' +
+            "</button>"
+          : "";
+
+        return (
+          '<article class="masonry-item portfolio-card' + (isSelected ? " selected" : "") + '" data-id="' + item.id + '">' +
+            '<div class="card-image-wrap">' +
+              '<div class="card-skeleton" data-skeleton="' + item.id + '"></div>' +
+              '<img src="' + item.imageUrl + '" alt="' + escapeHtml(item.title) + '" data-img="' + item.id + '" style="opacity:0" />' +
+              '<div class="card-actions-left">' +
+                '<button type="button" class="card-action-btn delete" data-action="delete" data-id="' + item.id + '" aria-label="Delete">' +
+                  '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>' +
+                "</button>" +
+              "</div>" +
+              '<div class="card-actions-right">' + moveUpHtml + moveDownHtml + "</div>" +
+              featuredHtml +
+            "</div>" +
+            '<button type="button" class="card-body" data-action="select" data-id="' + item.id + '">' +
+              '<h3 class="card-title">' + escapeHtml(item.title) + "</h3>" +
+              '<p class="card-description">' + escapeHtml(item.description) + "</p>" +
+              tagsHtml +
+            "</button>" +
+          "</article>"
+        );
+      }
+
+      function renderPortfolio() {
+        if (state.items.length === 0) {
+          portfolioContainer.innerHTML = renderEmptyState();
+          return;
+        }
+
+        var cards = state.items.map(function (item, index) {
+          return renderPortfolioCard(item, index, state.items.length);
+        }).join("");
+
+        portfolioContainer.innerHTML = '<div class="masonry-grid">' + cards + "</div>";
+
+        var images = portfolioContainer.querySelectorAll("img[data-img]");
+        for (var i = 0; i < images.length; i++) {
+          (function (img) {
+            if (img.complete) {
+              onImageLoad(img);
+            } else {
+              img.addEventListener("load", function () { onImageLoad(img); });
+            }
+          })(images[i]);
+        }
+      }
+
+      function onImageLoad(img) {
+        img.style.opacity = "1";
+        img.style.transition = "opacity 0.3s";
+        var id = img.getAttribute("data-img");
+        var skeleton = portfolioContainer.querySelector('[data-skeleton="' + id + '"]');
+        if (skeleton) skeleton.remove();
+      }
+
+      function renderEditorHTML(item) {
+        var isFirst = state.items.length > 0 && state.items[0].id === item.id;
+        var isLast = state.items.length > 0 && state.items[state.items.length - 1].id === item.id;
+
+        var tagsHtml = item.tags.map(function (tag) {
+          return (
+            '<span class="tag-chip">' +
+              escapeHtml(tag) +
+              '<button type="button" class="tag-remove" data-action="remove-tag" data-tag="' + escapeHtml(tag) + '" aria-label="Remove ' + escapeHtml(tag) + '">&times;</button>' +
+            "</span>"
+          );
+        }).join("");
+
+        var tagPlaceholder = item.tags.length === 0 ? ' placeholder="Add a tag\u2026"' : "";
+
+        return (
+          '<aside class="editor" data-editor-id="' + item.id + '">' +
+            '<div class="editor-header">' +
+              "<h2>Edit Project</h2>" +
+              '<button type="button" class="editor-close" data-action="close-editor" aria-label="Close editor">' +
+                '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>' +
+              "</button>" +
+            "</div>" +
+            '<div class="editor-body">' +
+              '<div class="editor-preview">' +
+                '<img src="' + item.imageUrl + '" alt="' + escapeHtml(item.title) + '" />' +
+              "</div>" +
+              '<div class="form-group">' +
+                '<label class="form-label" for="edit-title">Title</label>' +
+                '<input id="edit-title" class="form-input" type="text" data-field="title" value="' + escapeHtml(item.title) + '" />' +
+              "</div>" +
+              '<div class="form-group">' +
+                '<label class="form-label" for="edit-description">Description</label>' +
+                '<textarea id="edit-description" class="form-textarea" rows="3" data-field="description">' + escapeHtml(item.description) + "</textarea>" +
+              "</div>" +
+              '<div class="form-group">' +
+                '<label class="form-label" for="edit-category">Category</label>' +
+                '<input id="edit-category" class="form-input" type="text" data-field="category" value="' + escapeHtml(item.category) + '" />' +
+              "</div>" +
+              '<div class="form-group">' +
+                '<label class="form-label">Tags</label>' +
+                '<div class="tags-container" id="tags-container">' +
+                  tagsHtml +
+                  '<input type="text" class="tags-input" id="tags-input"' + tagPlaceholder + " />" +
+                "</div>" +
+                '<p class="tags-hint">Press Enter to add a tag</p>' +
+              "</div>" +
+              '<label class="checkbox-label">' +
+                '<input type="checkbox" data-field="featured"' + (item.featured ? " checked" : "") + " />" +
+                "<span>Featured project</span>" +
+              "</label>" +
+            "</div>" +
+            '<div class="editor-footer">' +
+              '<div class="editor-actions">' +
+                '<button type="button" class="btn btn-flex" data-action="move-up"' + (isFirst ? " disabled" : "") + ">Move up</button>" +
+                '<button type="button" class="btn btn-flex" data-action="move-down"' + (isLast ? " disabled" : "") + ">Move down</button>" +
+              "</div>" +
+              '<button type="button" class="btn btn-danger" data-action="delete-editor">Delete project</button>' +
+            "</div>" +
+          "</aside>"
+        );
+      }
+
+      function bindEditorEvents(container) {
+        if (!container) return;
+
+        var closeBtn = container.querySelector('[data-action="close-editor"]');
+        if (closeBtn) {
+          closeBtn.addEventListener("click", function () {
+            state.selectedId = null;
+            render();
+          });
+        }
+
+        var fields = container.querySelectorAll("[data-field]");
+        for (var i = 0; i < fields.length; i++) {
+          (function (field) {
+            var fieldName = field.getAttribute("data-field");
+            var eventType = field.type === "checkbox" ? "change" : "input";
+            field.addEventListener(eventType, function () {
+              var item = getSelectedItem();
+              if (!item) return;
+              var value = field.type === "checkbox" ? field.checked : field.value;
+              updateItem(item.id, (function () { var o = {}; o[fieldName] = value; return o; })());
+              renderPortfolio();
+              renderHeader();
+              updateEditorFieldStates(container, item.id);
+            });
+          })(fields[i]);
+        }
+
+        var tagsInput = container.querySelector("#tags-input");
+        if (tagsInput) {
+          tagsInput.addEventListener("keydown", function (e) {
+            var item = getSelectedItem();
+            if (!item) return;
+
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addTagFromInput(tagsInput, item.id);
+            }
+            if (e.key === "Backspace" && tagsInput.value === "" && item.tags.length > 0) {
+              updateItem(item.id, { tags: item.tags.slice(0, -1) });
+              render();
+            }
+          });
+
+          tagsInput.addEventListener("blur", function () {
+            var item = getSelectedItem();
+            if (!item) return;
+            addTagFromInput(tagsInput, item.id);
+          });
+        }
+
+        var removeTagBtns = container.querySelectorAll('[data-action="remove-tag"]');
+        for (var r = 0; r < removeTagBtns.length; r++) {
+          (function (btn) {
+            btn.addEventListener("click", function () {
+              var item = getSelectedItem();
+              if (!item) return;
+              var tag = btn.getAttribute("data-tag");
+              updateItem(item.id, { tags: item.tags.filter(function (t) { return t !== tag; }) });
+              render();
+            });
+          })(removeTagBtns[r]);
+        }
+
+        var moveUpBtn = container.querySelector('[data-action="move-up"]');
+        if (moveUpBtn) {
+          moveUpBtn.addEventListener("click", function () {
+            var item = getSelectedItem();
+            if (!item) return;
+            moveItem(item.id, -1);
+            render();
+          });
+        }
+
+        var moveDownBtn = container.querySelector('[data-action="move-down"]');
+        if (moveDownBtn) {
+          moveDownBtn.addEventListener("click", function () {
+            var item = getSelectedItem();
+            if (!item) return;
+            moveItem(item.id, 1);
+            render();
+          });
+        }
+
+        var deleteBtn = container.querySelector('[data-action="delete-editor"]');
+        if (deleteBtn) {
+          deleteBtn.addEventListener("click", function () {
+            var item = getSelectedItem();
+            if (!item) return;
+            deleteItem(item.id);
+            render();
+          });
+        }
+      }
+
+      function addTagFromInput(input, itemId) {
+        var tag = input.value.trim();
+        if (!tag) return;
+        var item = getSelectedItem();
+        if (!item || item.id !== itemId) return;
+        if (item.tags.indexOf(tag) !== -1) {
+          input.value = "";
+          return;
+        }
+        updateItem(itemId, { tags: item.tags.concat([tag]) });
+        render();
+      }
+
+      function updateEditorFieldStates(container, itemId) {
+        var item = null;
+        for (var i = 0; i < state.items.length; i++) {
+          if (state.items[i].id === itemId) { item = state.items[i]; break; }
+        }
+        if (!item) return;
+
+        var isFirst = state.items[0].id === item.id;
+        var isLast = state.items[state.items.length - 1].id === item.id;
+
+        var moveUpBtn = container.querySelector('[data-action="move-up"]');
+        var moveDownBtn = container.querySelector('[data-action="move-down"]');
+        if (moveUpBtn) moveUpBtn.disabled = isFirst;
+        if (moveDownBtn) moveDownBtn.disabled = isLast;
+      }
+
+      function renderEditor() {
+        var item = getSelectedItem();
+
+        if (!item) {
+          editorSidebar.classList.remove("visible");
+          editorSidebarContent.innerHTML = "";
+          editorOverlay.classList.remove("visible");
+          editorSheetContent.innerHTML = "";
+          return;
+        }
+
+        var html = renderEditorHTML(item);
+
+        editorSidebar.classList.add("visible");
+        editorSidebarContent.innerHTML = html;
+        bindEditorEvents(editorSidebarContent);
+
+        editorOverlay.classList.add("visible");
+        editorSheetContent.innerHTML = html;
+        bindEditorEvents(editorSheetContent);
+      }
+
+      function renderHeader() {
+        if (state.items.length > 0) {
+          projectCount.textContent = state.items.length + " " + (state.items.length === 1 ? "project" : "projects");
+          projectCount.classList.remove("hidden");
+        } else {
+          projectCount.classList.add("hidden");
+        }
+
+        if (state.items.length > 1) {
+          sectionHint.classList.remove("hidden");
+        } else {
+          sectionHint.classList.add("hidden");
+        }
+      }
+
+      function renderDropZone() {
+        if (state.isDragging) {
+          dropZone.classList.add("dragging");
+        } else {
+          dropZone.classList.remove("dragging");
+        }
+      }
+
+      function render() {
+        renderDropZone();
+        renderErrors();
+        renderUploadPreviews();
+        renderHeader();
+        renderPortfolio();
+        renderEditor();
+        bindPortfolioEvents();
+      }
+
+      function bindPortfolioEvents() {
+        var actionBtns = portfolioContainer.querySelectorAll("[data-action]");
+        for (var i = 0; i < actionBtns.length; i++) {
+          (function (btn) {
+            btn.addEventListener("click", function (e) {
+              e.stopPropagation();
+              var action = btn.getAttribute("data-action");
+              var id = btn.getAttribute("data-id");
+
+              if (action === "select") {
+                state.selectedId = id;
+                render();
+              } else if (action === "delete") {
+                deleteItem(id);
+                render();
+              } else if (action === "move-up") {
+                moveItem(id, -1);
+                render();
+              } else if (action === "move-down") {
+                moveItem(id, 1);
+                render();
+              }
+            });
+          })(actionBtns[i]);
+        }
+      }
+
+      dropZone.addEventListener("click", function () {
+        fileInput.click();
+      });
+
+      dropZone.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          fileInput.click();
+        }
+      });
+
+      dropZone.addEventListener("dragenter", function (e) {
+        e.preventDefault();
+        dragCounter++;
+        state.isDragging = true;
+        renderDropZone();
+      });
+
+      dropZone.addEventListener("dragleave", function (e) {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter <= 0) {
+          dragCounter = 0;
+          state.isDragging = false;
+          renderDropZone();
+        }
+      });
+
+      dropZone.addEventListener("dragover", function (e) {
+        e.preventDefault();
+      });
+
+      dropZone.addEventListener("drop", function (e) {
+        e.preventDefault();
+        dragCounter = 0;
+        state.isDragging = false;
+        processFiles(e.dataTransfer.files);
+      });
+
+      fileInput.addEventListener("change", function (e) {
+        processFiles(e.target.files);
+        e.target.value = "";
+      });
+
+      editorBackdrop.addEventListener("click", function () {
+        state.selectedId = null;
+        render();
+      });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

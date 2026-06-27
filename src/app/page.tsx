@@ -1,0 +1,169 @@
+"use client";
+
+import { useCallback, useState } from "react";
+import { DropZone } from "@/components/DropZone";
+import { PortfolioEditor } from "@/components/PortfolioEditor";
+import { PortfolioGrid } from "@/components/PortfolioGrid";
+import {
+  createPortfolioItem,
+  updatePortfolioItem,
+  type PortfolioItem,
+} from "@/types/portfolio";
+
+function moveItem(items: PortfolioItem[], id: string, direction: -1 | 1) {
+  const index = items.findIndex((item) => item.id === id);
+  if (index === -1) return items;
+
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= items.length) return items;
+
+  const next = [...items];
+  const [moved] = next.splice(index, 1);
+  next.splice(targetIndex, 0, moved);
+  return next;
+}
+
+export default function HomePage() {
+  const [items, setItems] = useState<PortfolioItem[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const selectedItem = items.find((item) => item.id === selectedId) ?? null;
+
+  const handleFilesDropped = useCallback((files: File[]) => {
+    const newItems = files.map((file) =>
+      createPortfolioItem(URL.createObjectURL(file))
+    );
+
+    setItems((prev) => [...newItems, ...prev]);
+
+    if (newItems.length === 1) {
+      setSelectedId(newItems[0].id);
+    }
+  }, []);
+
+  const handleSelect = useCallback((id: string) => {
+    setSelectedId(id);
+  }, []);
+
+  const handleUpdate = useCallback(
+    (updates: Partial<Omit<PortfolioItem, "id" | "createdAt">>) => {
+      if (!selectedId) return;
+
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === selectedId ? updatePortfolioItem(item, updates) : item
+        )
+      );
+    },
+    [selectedId]
+  );
+
+  const handleClose = useCallback(() => {
+    setSelectedId(null);
+  }, []);
+
+  const handleDelete = useCallback((id: string) => {
+    setItems((prev) => {
+      const item = prev.find((i) => i.id === id);
+      if (item) URL.revokeObjectURL(item.imageUrl);
+      return prev.filter((i) => i.id !== id);
+    });
+    setSelectedId((current) => (current === id ? null : current));
+  }, []);
+
+  const handleMoveUp = useCallback((id: string) => {
+    setItems((prev) => moveItem(prev, id, -1));
+  }, []);
+
+  const handleMoveDown = useCallback((id: string) => {
+    setItems((prev) => moveItem(prev, id, 1));
+  }, []);
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <header className="border-b border-border bg-card">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+          <div>
+            <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              Drop Drop
+            </h1>
+            <p className="text-xs text-muted">Portfolio builder</p>
+          </div>
+          {items.length > 0 && (
+            <span className="text-xs text-muted">
+              {items.length} {items.length === 1 ? "project" : "projects"}
+            </span>
+          )}
+        </div>
+      </header>
+
+      <div className="mx-auto flex w-full max-w-7xl flex-1">
+        <main className="flex-1 px-6 py-8">
+          <section className="mb-8">
+            <DropZone onFilesDropped={handleFilesDropped} />
+          </section>
+
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xs font-medium tracking-wide text-muted uppercase">
+                Portfolio
+              </h2>
+              {items.length > 1 && (
+                <p className="text-[10px] text-muted">
+                  Hover a card to reorder or delete
+                </p>
+              )}
+            </div>
+            <PortfolioGrid
+              items={items}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              onDelete={handleDelete}
+              onMoveUp={handleMoveUp}
+              onMoveDown={handleMoveDown}
+            />
+          </section>
+        </main>
+
+        {selectedItem && (
+          <div className="hidden w-80 shrink-0 lg:block">
+            <div className="sticky top-0 h-screen">
+              <PortfolioEditor
+                item={selectedItem}
+                onUpdate={handleUpdate}
+                onClose={handleClose}
+                onDelete={() => handleDelete(selectedItem.id)}
+                onMoveUp={() => handleMoveUp(selectedItem.id)}
+                onMoveDown={() => handleMoveDown(selectedItem.id)}
+                isFirst={items[0]?.id === selectedItem.id}
+                isLast={items[items.length - 1]?.id === selectedItem.id}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-foreground/20"
+            onClick={handleClose}
+            aria-hidden="true"
+          />
+          <div className="absolute right-0 bottom-0 left-0 max-h-[85vh] overflow-hidden rounded-t-2xl bg-card shadow-xl">
+            <PortfolioEditor
+              item={selectedItem}
+              onUpdate={handleUpdate}
+              onClose={handleClose}
+              onDelete={() => handleDelete(selectedItem.id)}
+              onMoveUp={() => handleMoveUp(selectedItem.id)}
+              onMoveDown={() => handleMoveDown(selectedItem.id)}
+              isFirst={items[0]?.id === selectedItem.id}
+              isLast={items[items.length - 1]?.id === selectedItem.id}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
