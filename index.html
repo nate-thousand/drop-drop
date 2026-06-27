@@ -874,6 +874,7 @@
       var DEFAULT_TITLE = "Untitled Project";
       var DEFAULT_DESCRIPTION = "Short project description goes here.";
       var DEFAULT_CATEGORY = "Uncategorized";
+      var STORAGE_KEY = "drop-drop-portfolio";
 
       var state = {
         items: [],
@@ -882,6 +883,42 @@
         errors: [],
         pendingPreviews: []
       };
+
+      function loadPortfolio() {
+        try {
+          var raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [];
+          var parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function savePortfolio() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.items));
+        } catch (e) {
+          // Storage quota may be exceeded with many large images.
+        }
+      }
+
+      function fileToDataUrl(file) {
+        return new Promise(function (resolve, reject) {
+          var reader = new FileReader();
+          reader.onload = function () { resolve(reader.result); };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      function revokeImageUrl(imageUrl) {
+        if (imageUrl.indexOf("blob:") === 0) {
+          URL.revokeObjectURL(imageUrl);
+        }
+      }
+
+      state.items = loadPortfolio();
 
       var dragCounter = 0;
       var previewTimeout = null;
@@ -968,6 +1005,7 @@
         if (targetIndex < 0 || targetIndex >= state.items.length) return;
         var item = state.items.splice(index, 1)[0];
         state.items.splice(targetIndex, 0, item);
+        savePortfolio();
       }
 
       function clearPendingPreviews() {
@@ -1002,23 +1040,26 @@
 
         state.pendingPreviews = previews;
 
-        var newItems = result.valid.map(function (file) {
-          return createPortfolioItem(URL.createObjectURL(file));
+        Promise.all(result.valid.map(fileToDataUrl)).then(function (dataUrls) {
+          var newItems = dataUrls.map(function (url) {
+            return createPortfolioItem(url);
+          });
+
+          state.items = newItems.concat(state.items);
+
+          if (newItems.length === 1) {
+            state.selectedId = newItems[0].id;
+          }
+
+          savePortfolio();
+          render();
+
+          if (previewTimeout) clearTimeout(previewTimeout);
+          previewTimeout = setTimeout(function () {
+            clearPendingPreviews();
+            renderUploadPreviews();
+          }, 2500);
         });
-
-        state.items = newItems.concat(state.items);
-
-        if (newItems.length === 1) {
-          state.selectedId = newItems[0].id;
-        }
-
-        render();
-
-        if (previewTimeout) clearTimeout(previewTimeout);
-        previewTimeout = setTimeout(function () {
-          clearPendingPreviews();
-          renderUploadPreviews();
-        }, 2500);
       }
 
       function updateItem(id, updates) {
@@ -1031,6 +1072,7 @@
               }
             }
             item.updatedAt = new Date().toISOString();
+            savePortfolio();
             break;
           }
         }
@@ -1039,7 +1081,7 @@
       function deleteItem(id) {
         for (var i = 0; i < state.items.length; i++) {
           if (state.items[i].id === id) {
-            URL.revokeObjectURL(state.items[i].imageUrl);
+            revokeImageUrl(state.items[i].imageUrl);
             state.items.splice(i, 1);
             break;
           }
@@ -1047,6 +1089,7 @@
         if (state.selectedId === id) {
           state.selectedId = null;
         }
+        savePortfolio();
       }
 
       function escapeHtml(str) {

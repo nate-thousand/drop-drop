@@ -1,9 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DropZone } from "@/components/DropZone";
 import { PortfolioEditor } from "@/components/PortfolioEditor";
 import { PortfolioGrid } from "@/components/PortfolioGrid";
+import {
+  fileToDataUrl,
+  loadPortfolio,
+  revokeImageUrl,
+  savePortfolio,
+} from "@/lib/portfolio-storage";
 import {
   createPortfolioItem,
   updatePortfolioItem,
@@ -26,13 +32,23 @@ function moveItem(items: PortfolioItem[], id: string, direction: -1 | 1) {
 export default function HomePage() {
   const [items, setItems] = useState<PortfolioItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const selectedItem = items.find((item) => item.id === selectedId) ?? null;
 
-  const handleFilesDropped = useCallback((files: File[]) => {
-    const newItems = files.map((file) =>
-      createPortfolioItem(URL.createObjectURL(file))
-    );
+  useEffect(() => {
+    setItems(loadPortfolio());
+    setIsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    savePortfolio(items);
+  }, [items, isLoaded]);
+
+  const handleFilesDropped = useCallback(async (files: File[]) => {
+    const dataUrls = await Promise.all(files.map(fileToDataUrl));
+    const newItems = dataUrls.map((url) => createPortfolioItem(url));
 
     setItems((prev) => [...newItems, ...prev]);
 
@@ -65,7 +81,7 @@ export default function HomePage() {
   const handleDelete = useCallback((id: string) => {
     setItems((prev) => {
       const item = prev.find((i) => i.id === id);
-      if (item) URL.revokeObjectURL(item.imageUrl);
+      if (item) revokeImageUrl(item.imageUrl);
       return prev.filter((i) => i.id !== id);
     });
     setSelectedId((current) => (current === id ? null : current));
